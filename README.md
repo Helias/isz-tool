@@ -33,17 +33,8 @@ Currently not supported :
 Usage
 -----
 
-./isz-tool.py info file.isz
-  Print general information about file.isz
-
-./isz-tool.py verify file.isz
-  Verify the CRC of file.isz
-
-./isz-tool.py verify --slow file.isz
-  Attempt to decompress and verify the CRC of file.isz
-
-./isz-tool.py isz2iso file.isz file.iso
-  Convert file.isz to an ISO file
+Execute the file isz-tool.py with " ./isz-tool.py "
+When you will convert the file, the file iso will be saved in the same folder of the file isz
 
 License
 -------
