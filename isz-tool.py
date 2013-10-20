@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
-# Copyright (C) 2012 Olivier Serres
+# Copyright (C) 2012 Olivier Serres - Helias
 
 #    This file is part of ISZ-tool.
 #
@@ -17,6 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with ISZ-tool.  If not, see <http://www.gnu.org/licenses/>.
 
+import wx
 import argparse
 import bz2
 import ctypes
@@ -71,12 +72,6 @@ class ISZ_header(ctypes.LittleEndianStructure):
 
     def get_uncompressed_size(self):
         return self.sector_size * self.total_sectors
-
-    def get_isz_description(self):
-        str = "ISZ version %d, %s" % (self.version_number, self.password_types[self.encryption_type])
-        str += ', volume serial number %s' % hex(self.volume_serial_number)
-        str += ', uncompressed size=%d MB' % (self.get_uncompressed_size() / 1024 / 1024)
-        return str
 
     def print_isz_infos(self):
         print(self.get_isz_description())
@@ -316,33 +311,6 @@ class ISZ_File():
             data[2] = ord('h')
             return bz2.decompress(data)
 
-    def verify_isz_file(self):
-        """Verify the CRC of the compressed data."""
-        crc = 0
-
-        for block_id in range(len(self.chunk_pointers)):
-            (data_type, size) = self.chunk_pointers[block_id]
-            if data_type != 0:
-                data = self.get_block(block_id)
-                if len(data) != size:
-                    raise Exception('Wrong data size')
-                crc = zlib.crc32(data, crc) & 0xffffffff
-
-        crc = ~crc & 0xffffffff
-
-        return crc == self.isz_header.checksum2
-
-    def verify_uncompress_isz_file(self):
-        """Verify the CRC of the uncompress data."""
-        crc = 0
-
-        for block_id in range(len(self.chunk_pointers)):
-            data = self.decompress_block(block_id)
-            crc = zlib.crc32(data, crc) & 0xffffffff
-
-        crc = ~crc & 0xffffffff
-
-        return crc == self.isz_header.checksum1
 
     def extract_to(self, filename):
         """Extract the .iso to filename."""
@@ -350,84 +318,117 @@ class ISZ_File():
         iso_fp = open(filename, 'wb')
 
         crc = 0
+	dialog = wx.ProgressDialog('Converting to ISO', 'Conversion in progress...', len(self.chunk_pointers))
+	dialog.Show()
 
         for block_id in range(len(self.chunk_pointers)):
+	    dialog.Update(block_id)
             data = self.decompress_block(block_id)
             iso_fp.write(data)
             crc = zlib.crc32(data, crc) & 0xffffffff
 
         iso_fp.close()
+	dialog.Destroy()
 
         crc = ~crc & 0xffffffff
 
         if crc != self.isz_header.checksum1:
             raise Exception('CRC Error during extraction')
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Handle .isz files (ISO zipped)')
-    subparsers = parser.add_subparsers(dest='action')
+class Frame(wx.Frame):
+    def __init__(self, *args, **kwds):
+        kwds["style"] = wx.DEFAULT_FRAME_STYLE
+        wx.Frame.__init__(self, *args, **kwds)
+	
+        self.label_1 = wx.StaticText(self, -1, "ISZ Manager")
+        self.ChooseFile = wx.Button(self, -1, "Choose Files...")
+        self.control = wx.TextCtrl(self, -1, "")
+        self.ConvertISO = wx.Button(self, -1, "Convert to ISO")
 
-    parser_info = subparsers.add_parser('info', help='Display information about the ISZ file')
-    parser_info.add_argument('isz_file', metavar = 'filename', help = 'ISZ file')
+	#Menu
+	self.menubar = wx.MenuBar()
+        self.files = wx.Menu()
+        self.Quit = wx.MenuItem(self.files, 1, "Exit\tCtrl+Q", "", wx.ITEM_NORMAL)
+	self.Quit.SetBitmap(wx.Bitmap('icons/Exit.png'))
+	self.files.AppendItem(self.Quit)
+        self.menubar.Append(self.files, "File")
+        self.about= wx.Menu()
+        self.Info = wx.MenuItem(self.about, 2, "Info", "", wx.ITEM_NORMAL)
+	self.Info.SetBitmap(wx.Bitmap('icons/Info.png'))
+	self.about.AppendItem(self.Info)
+        self.menubar.Append(self.about, "About")
+        self.SetMenuBar(self.menubar)
 
-    parser_verify = subparsers.add_parser('verify', help='Verify the checksums of an ISZ file')
-    parser_verify.add_argument('-s', '--slow', action='store_true', help='Also try to decompress and verify the result')
-    parser_verify.add_argument('targets', metavar = 'filenames', nargs = '+', help = 'ISZ files to verify')
+        self.__set_properties()
+        self.__do_layout()
 
-    parser_isz2iso = subparsers.add_parser('isz2iso', help='Convert a .isz file to a .iso', aliases=('2iso',))
-    parser_isz2iso.add_argument('isz_file', metavar = 'filename', help = 'ISZ file to extract')
-    parser_isz2iso.add_argument('dest_iso', metavar = 'dest_iso', nargs = '?',  help = 'Destination ISO file')
+        self.Bind(wx.EVT_BUTTON, self.OnOpen, self.ChooseFile)
+	self.Bind(wx.EVT_BUTTON, self.ConvertToISO, self.ConvertISO)
+	self.Bind(wx.EVT_MENU, self.OnExit, self.Quit)
+	self.Bind(wx.EVT_MENU, self.OnInfo, self.Info)
 
-    res = parser.parse_args()
-    return res
+    def __set_properties(self):
+        self.SetTitle("ISZ Manager")
+	_icon = wx.EmptyIcon()
+	_icon.CopyFromBitmap(wx.Bitmap("icons/greentux.ico", wx.BITMAP_TYPE_ANY))
+	self.SetIcon(_icon)
+        self.label_1.SetBackgroundColour(wx.Colour(233, 255, 212))
+        self.label_1.SetForegroundColour(wx.Colour(111, 111, 111))
+        self.label_1.SetFont(wx.Font(20, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Sans"))
+        self.control.SetMinSize((400, 30))
+        self.control.SetFont(wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Sans"))
+        self.control.Enable(False)
+	self.control.SetBackgroundColour(wx.Colour(255, 255, 255))
 
-def main():
-    args = parse_arguments()
-
-    if args.action == 'info':
-        isz = ISZ_File()
-        isz.open_isz_file(args.isz_file)
-        isz.isz_header.print_isz_infos()
-        isz.close_file()
-
-    if args.action == 'verify':
-        for target in args.targets:
-            isz = ISZ_File()
-            isz.open_isz_file(target)
-
-            print('Verifying %(target)s - ' % locals(), end='')
-            sys.stdout.flush()
-            if isz.verify_isz_file():
-                print('PASS')
-            else:
-                print('ERROR')
-
-            if args.slow:
-                print('Decompressing and Verifying %(target)s - ' % locals(), end='')
-                sys.stdout.flush()
-                if isz.verify_uncompress_isz_file():
-                    print('PASS')
-                else:
-                    print('ERROR')
-
-    elif args.action == 'isz2iso':
-        isz = ISZ_File()
-        src_isz = args.isz_file
-        dest_iso = args.dest_iso
+    def __do_layout(self):
+        sizer_1 = wx.BoxSizer(wx.VERTICAL)
+        sizer_1.Add(self.label_1, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
+        sizer_1.Add(self.ChooseFile, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
+        sizer_1.Add(self.control, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
+        sizer_1.Add(self.ConvertISO, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
+        self.SetSizer(sizer_1)
+        sizer_1.Fit(self)
+        self.Layout()
+	self.Centre()
+	
+    def OnOpen(self,event):
+	global dirname
+	global filenameH
+	dirname = ''
+	dlg = wx.FileDialog(self, "Choose a file", dirname, "", "*.isz", wx.OPEN)
+	if dlg.ShowModal() == wx.ID_OK:
+		self.control.Clear()
+		filenameH = dlg.GetFilename()
+		dirname = dlg.GetDirectory()
+		self.control.SetValue(dirname+"/"+filenameH)
+		filenameH = filenameH.replace(".isz", "")
+	dlg.Destroy()
+	
+    def ConvertToISO(self, event):
+	isz = ISZ_File()
+        src_isz = dirname+"/"+filenameH+".isz"
+        dest_iso = dirname+"/"+filenameH+".iso"
         if not dest_iso:
             if src_isz.endswith('.isz'):
                 dest_iso = src_isz[:-4] + '.iso'
             else:
                 dest_iso = src_isz + '.iso'
 
-        print('Extracting %(src_isz)s to %(dest_iso)s - ' % locals(), end='')
-        sys.stdout.flush()
+	sys.stdout.flush()
+	isz.open_isz_file(src_isz)
+	isz.extract_to(dest_iso)
+	isz.close_file()
+	
+    def OnInfo(self, event):
+	wx.MessageBox('\n ISZ Manager was written in Python by Oserres and Helias and it is released under GNU GPL license \n', 'Info', wx.OK | wx.ICON_INFORMATION)
 
-        isz.open_isz_file(src_isz)
-        isz.extract_to(dest_iso)
-        isz.close_file()
+    def OnExit(self, event):
+	self.Close()
 
-        print('Done')
-
-main()
-
+if __name__ == "__main__":
+    app = wx.PySimpleApp(0)
+    wx.InitAllImageHandlers()
+    ISZManager = Frame(None, -1, "")
+    app.SetTopWindow(ISZManager)
+    ISZManager.Show()
+    app.MainLoop()
