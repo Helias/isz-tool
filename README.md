@@ -33,7 +33,8 @@ Currently not supported :
 Usage
 -----
 
-Execute the file isz-tool.py with " ./isz-tool.py "
+Execute the file isz-tool.py with " ./isz-tool.py ".
+
 When you will convert the file, the file iso will be saved in the same folder of the file isz
 
 License
@@ -59,10 +60,13 @@ Dependencies
 
 Python 3.2 is required to run isz-tool
 
+Libraries WX are required, install the package "python-wxglade"
+
 Author
 ------
 
 Olivier Serres - olivier.serres@gmail.com
+Stefano Borzì (Helias) - stefanoborzi32@gmail.com
 
 Links
 -----

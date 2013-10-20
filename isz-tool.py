@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2012 Olivier Serres - Helias
 
@@ -344,6 +344,7 @@ class Frame(wx.Frame):
         self.ChooseFile = wx.Button(self, -1, "Choose Files...")
         self.control = wx.TextCtrl(self, -1, "")
         self.ConvertISO = wx.Button(self, -1, "Convert to ISO")
+	self.label = wx.StaticText(self, -1, "")
 
 	#Menu
 	self.menubar = wx.MenuBar()
@@ -386,6 +387,7 @@ class Frame(wx.Frame):
         sizer_1.Add(self.ChooseFile, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
         sizer_1.Add(self.control, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
         sizer_1.Add(self.ConvertISO, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
+	sizer_1.Add(self.label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 10)
         self.SetSizer(sizer_1)
         sizer_1.Fit(self)
         self.Layout()
@@ -418,9 +420,11 @@ class Frame(wx.Frame):
 	isz.open_isz_file(src_isz)
 	isz.extract_to(dest_iso)
 	isz.close_file()
+	self.label.SetLabel("Conversion of %s.isz finished. Convert another file."% filenameH)
+	self.__do_layout()
 	
     def OnInfo(self, event):
-	wx.MessageBox('\n ISZ Manager was written in Python by Oserres and Helias and it is released under GNU GPL license \n', 'Info', wx.OK | wx.ICON_INFORMATION)
+	wx.MessageBox('\n ISZ Manager was written in Python by: \n\n- Olivier Serres (Oserres) \n- Stefano Borzi\' (Helias) \n\nIt is released under GNU GPL license', 'Info', wx.OK | wx.ICON_INFORMATION)
 
     def OnExit(self, event):
 	self.Close()
