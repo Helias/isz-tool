@@ -19,12 +19,6 @@ ISZ files support the following features :
  - Split files support (.isz, .i01, .i02, ...)
  - CRC checksums of both compressed an uncompressed data
 
-ISZ tool is a small command line tool currently able to :
- - Display informations about an ISZ file (uncompressed size, encryption
-     type...)
- - Verify the file checksum
- - Extract the file to an .iso file
-
 Currently not supported :
  - Encryption
  - Creation of an .isz file (before creating an .isz file, take into
@@ -53,7 +47,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with ISZ-tool.  If not, see <http://www.gnu.org/licenses/>.
 
-See gpl.txt for the license
+See gpl.txt for the licensev
 
 Dependencies
 ------------
@@ -66,7 +60,7 @@ Author
 ------
 
 Olivier Serres - olivier.serres@gmail.com
-Stefano Borzì (Helias) - stefanoborzi32@gmail.com
+Stefano BorzÃ¬ (Helias) - stefanoborzi32@gmail.com
 
 Links
 -----
